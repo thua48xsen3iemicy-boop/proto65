@@ -115,7 +115,6 @@
 </div>
 </section>
 
-
 <!-- Waiting screen -->
 <section id="waitScreen" class="panel center hidden">
 <div class="wait-card">
@@ -166,7 +165,6 @@
   <div class="alg-step" id="alg4"><b>4 · ПРОВЕРЬ</b>Нужно получить 5 / 5 LINK</div>
 </div>
 
-
       <div class="legend-grid">
         <div class="l"><b>ИНТЕРНЕТ</b>Линия провайдера. Подключается только к WAN маршрутизатора.</div>
         <div class="l"><b>R1 · МАРШРУТИЗАТОР</b>WAN принимает Интернет. LAN1/LAN2 ведут во внутреннюю сеть.</div>
@@ -179,7 +177,7 @@
         <svg class="net-svg" id="netSvg"></svg>
 
         <div class="net-device" id="router">
-          <div class="dev-icon">R1</div><div class="type">R1 · МАРШРУТИЗАТОР</div>
+          <div class="type">R1 · МАРШРУТИЗАТОР</div>
           <h3>Шлюз локальной сети</h3><div class="device-note">WAN — вход от провайдера · LAN1/LAN2 — внутренняя сеть</div>
           <div class="ports">
             <button class="port main-port" data-p="router:wan">WAN</button>
@@ -189,13 +187,13 @@
         </div>
 
         <div class="internet-cloud" id="internet">
-          <div class="dev-icon">NET</div><div class="type">ИНТЕРНЕТ</div>
+          <div class="type">ИНТЕРНЕТ</div>
           <div class="device-note">Провайдер. Его ЛИНИЯ подключается в WAN маршрутизатора.</div>
           <button class="port main-port" data-p="internet:line">ЛИНИЯ</button>
         </div>
 
         <div class="net-device" id="switch">
-          <div class="dev-icon">SW1</div><div class="type">SW1 · КОММУТАТОР</div>
+          <div class="type">SW1 · КОММУТАТОР</div>
           <h3>P1–P5 — равнозначные порты. Используй любые свободные.</h3>
           <div class="ports">
             <button class="port main-port" data-p="switch:1">P1</button>
@@ -207,19 +205,19 @@
         </div>
 
         <div class="net-device" id="pc">
-          <div class="dev-icon">PC1</div><div class="type">PC1 · РАБОЧИЙ ПК</div>
+          <div class="type">PC1 · РАБОЧИЙ ПК</div>
           <h3>Компьютер котика</h3><div class="device-note">ETH — сетевой порт рабочего компьютера.</div>
           <div class="ports"><button class="port main-port" data-p="pc:eth">ETH</button></div>
         </div>
 
         <div class="net-device" id="server">
-          <div class="dev-icon">SRV1</div><div class="type">SRV1 · СЕРВЕР</div>
+          <div class="type">SRV1 · СЕРВЕР</div>
           <h3>Сервер острова</h3><div class="device-note">ETH — сетевой порт сервера.</div>
           <div class="ports"><button class="port main-port" data-p="server:eth">ETH</button></div>
         </div>
 
         <div class="net-device" id="ap">
-          <div class="dev-icon">AP1</div><div class="type">AP1 · ТОЧКА WI‑FI</div>
+          <div class="type">AP1 · ТОЧКА WI‑FI</div>
           <h3>Точка доступа</h3><div class="device-note">ETH — сетевой порт точки Wi‑Fi.</div>
           <div class="ports"><button class="port main-port" data-p="ap:eth">ETH</button></div>
         </div>

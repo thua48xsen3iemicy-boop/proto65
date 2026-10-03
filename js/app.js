@@ -7,6 +7,10 @@ const heroes=[
   {id:'flash',n:'Флэш-кот',img:'images/heroes/flash.webp'},
   {id:'panther',n:'Пантера-кот',img:'images/heroes/panther.webp'}
 ];
+// Маргарита Евгеньевна: наставница, атака Red Team, обиженная (штрафы и финал)
+const FOX_GUIDE='images/mentor-guide.webp';
+const FOX_ATTACK='images/mentor-attack.webp';
+const FOX_ANGRY='images/mentor-angry.webp';
 
 let hero=null;
 let waitingStage=null;
@@ -73,14 +77,6 @@ function penalty(title,text,seconds,img=FOX_ANGRY,ms=3600){
   p.innerHTML='<div class="penalty-card"><img src="'+img+'"><div class="penalty-text"><h2>'+title+'</h2><p>'+text+'</p><div class="minus">− '+seconds+' сек</div></div></div>';
   document.body.appendChild(p);beep(120,.14,.03);setTimeout(()=>p.remove(),ms)
 }
-function cine(title,text,button,cb,img=FOX_GUIDE,tag='МАРГАРИТА ЕВГЕНЬЕВНА'){
-  let o=document.createElement('div');o.className='cine';
-  o.innerHTML='<div class="cine-box"><div class="cine-photo"><img src="'+img+'"></div><div class="cine-text"><div class="tag">'+tag+'</div><h2>'+title+'</h2><p>'+text+'</p><button class="btn cyan" id="cineBtn">'+button+'</button></div></div>';
-  document.body.appendChild(o);let b=o.querySelector('#cineBtn');b.disabled=true;setTimeout(()=>b.disabled=false,1800);b.onclick=()=>{o.remove();cb&&cb()}
-}
-const FOX_GUIDE='images/mentor-guide.webp';
-const FOX_ATTACK='images/mentor-attack.webp';
-const FOX_ANGRY='images/mentor-angry.webp';
 function countdown(stage,cb){
   const titles={
     program:'МОДУЛЬ 1 · МАРШРУТ К РАБОЧЕМУ ПК',
@@ -156,12 +152,6 @@ function revealAlly(){
   document.body.appendChild(o);q('#allyWait').textContent='СОЮЗНИК ПОДКЛЮЧЁН';setTimeout(()=>o.remove(),5000)
 }
 
-
-
-
-
-
-
 // 5 кадров на каждый этап; второй кадр этапа «Защита» общий для всех героев.
 function comicPanels(h,stage){
   return [1,2,3,4,5].map(i=>stage==='sec'&&i===2?'images/comics/shared/sec-2.webp':'images/comics/'+h.id+'/'+stage+'-'+i+'.webp');
@@ -188,11 +178,6 @@ function showRealComic(title, stageKey, button, cb){
 function showProgramComic(cb){showRealComic('КОМИКС · МАРШРУТ К PC1','program','ПЕРЕЙТИ К СЕТИ',cb)}
 function showNetworkComic(cb){showRealComic('КОМИКС · СЕТЬ ВОССТАНОВЛЕНА','sys','ПЕРЕЙТИ К ЗАЩИТЕ',cb)}
 function showSecurityVictory(cb){showRealComic('КОМИКС · RED TEAM ОСТАНОВЛЕНА','sec','ПОКАЗАТЬ ИТОГ',cb)}
-
-
-
-
-
 
 /* Hero selection */
 heroes.forEach(h=>{let b=document.createElement('button');b.className='hero-card';b.innerHTML='<img src="'+h.img+'"><div class="hero-name">'+h.n+'</div>';b.onclick=()=>{qa('.hero-card').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');hero=h;q('#confirmHero').disabled=false};q('#heroGrid').appendChild(b)});
@@ -247,7 +232,6 @@ let tutPort=null;
 function resetSysTutorial(){tutPort=null;qa('.tut-port').forEach(x=>x.classList.remove('sel','link'));q('#sysTutExplain').classList.add('hidden');q('#sysReady').disabled=true}
 qa('.tut-port').forEach(b=>b.onclick=()=>{if(!tutPort){tutPort=b;b.classList.add('sel')}else if(tutPort!==b){tutPort.classList.remove('sel');tutPort.classList.add('link');b.classList.add('link');q('#sysTutExplain').classList.remove('hidden');q('#sysReady').disabled=false;tutPort=null;beep(800)}});
 q('#sysReady').onclick=()=>sendReady('sys');
-
 
 /* Sysadmin game */
 let selectedPort=null;
@@ -380,9 +364,9 @@ const secItems=[
 ];
 const secCorrect=['mail','site','creds','login'];
 function resetSecGame(){
-  secClues=new Set();secSub=1;secOrder=[];q('#secStep1').classList.remove('hidden');q('#secStep2').classList.add('hidden');q('#secStep3').classList.add('hidden');q('#secProgress').textContent='Этап 1 / 3';q('#secWhy').innerHTML='<b>Разбор:</b> после правильного клика здесь появится короткое объяснение.';qa('.candidate.found').forEach(x=>x.classList.remove('found','good-pulse'));initSecChain();updateStatus(0)
+  secClues=new Set();secSub=1;secOrder=[];q('#secStep1').classList.remove('hidden');q('#secStep2').classList.add('hidden');q('#secStep3').classList.add('hidden');q('#secProgress').textContent='Этап 1 / 3';q('#secWhy').innerHTML='<b>Разбор:</b> после правильного клика здесь появится короткое объяснение.';qa('.candidate.found').forEach(x=>x.classList.remove('found'));initSecChain();updateStatus(0)
 }
-qa('#secMail .clue').forEach(el=>el.onclick=e=>{e.stopPropagation();if(gameOver||secClues.has(el.dataset.clue))return;secClues.add(el.dataset.clue);el.classList.add('found','good-pulse');q('#secWhy').innerHTML=why[el.dataset.clue];beep(760);showFloat('✓', e.clientX, e.clientY);updateStatus(secClues.size/3*33);if(secClues.size===3)setTimeout(()=>{showBurst('УЛИКИ НАЙДЕНЫ');secSub=2;q('#secStep1').classList.add('hidden');q('#secStep2').classList.remove('hidden');q('#secProgress').textContent='Этап 2 / 3';updateStatus(50)},650)});
+qa('#secMail .clue').forEach(el=>el.onclick=e=>{e.stopPropagation();if(gameOver||secClues.has(el.dataset.clue))return;secClues.add(el.dataset.clue);el.classList.add('found');q('#secWhy').innerHTML=why[el.dataset.clue];beep(760);showFloat('✓', e.clientX, e.clientY);updateStatus(secClues.size/3*33);if(secClues.size===3)setTimeout(()=>{showBurst('УЛИКИ НАЙДЕНЫ');secSub=2;q('#secStep1').classList.add('hidden');q('#secStep2').classList.remove('hidden');q('#secProgress').textContent='Этап 2 / 3';updateStatus(50)},650)});
 qa('#secMail .decoy').forEach(el=>el.onclick=()=>{if(gameOver)return;penalty('Ай-ай-ай…','Это не отличие от образца. Пока ты отвлёкся, Red Team получила преимущество.',3);log('Ложная улика.','badtxt')});
 function initSecChain(){
   secOrder=[];q('#secCards').innerHTML='';q('#secSlots').innerHTML='';
