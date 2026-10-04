@@ -116,6 +116,10 @@ function showWait(stage){
   screen='wait:'+stage;currentStage=null;updateTop('ГОТОВ · '+stageName(stage));
   showMessage('Готовность отправлена Маргарите Евгеньевне','Жди, пока Маргарита Евгеньевна запустит этап «'+stageName(stage)+'».','ОЖИДАНИЕ КОМАНДЫ МАРГАРИТЫ ЕВГЕНЬЕВНЫ…','✓');
 }
+function showLocked(stage){
+  screen='locked:'+stage;currentStage=null;updateTop('ОЖИДАНИЕ · '+stageName(stage));
+  showMessage('Скоро начнётся этап «'+stageName(stage)+'»','Маргарита Евгеньевна откроет обучение, когда все будут готовы.','ОЖИДАНИЕ СИГНАЛА МАРГАРИТЫ ЕВГЕНЬЕВНЫ…','⏳');
+}
 function showNotice(title,text,status){
   screen='notice';currentStage=null;updateTop('ОЖИДАНИЕ');showMessage(title,text,status,'⏳');
 }
@@ -205,12 +209,19 @@ let trainProgQ=[];
 function setTrainHero(){q('#trainProgStart').innerHTML=hero?'<div class="player"><img src="'+hero.img+'"></div>':''}
 function resetProgTutorial(){trainProgQ=[];q('#trainProgQueue').innerHTML='';q('#trainProgRun').disabled=true;q('#progReady').disabled=true;q('#trainProgExplain').classList.add('hidden');setTrainHero()}
 qa('.train-prog').forEach(b=>b.onclick=()=>{if(trainProgQ.length>=2)return;trainProgQ.push(b.dataset.cmd);q('#trainProgQueue').innerHTML=trainProgQ.map(x=>'<span class="qitem">'+x+'</span>').join('');q('#trainProgRun').disabled=trainProgQ.length!==2});
-q('#trainProgRun').onclick=()=>{if(trainProgQ.join('')==='→→'){q('#trainProgExplain').classList.remove('hidden');q('#progReady').disabled=false;beep(800)}else{q('#trainProgQueue').innerHTML='';trainProgQ=[];q('#trainProgRun').disabled=true}};
+q('#trainProgRun').onclick=()=>{if(trainProgQ.join('')==='→→'){q('#trainProgExplain').classList.remove('hidden');q('#progReady').disabled=false;beep(800);reportTutorialDone('program')}else{q('#trainProgQueue').innerHTML='';trainProgQ=[];q('#trainProgRun').disabled=true}};
 q('#progReady').onclick=()=>sendReady('program');
 
 /* Programming game */
 const blocks=new Set(['0,2','1,0','1,2','1,4','3,1','3,2','3,3']);
-let progQueue=[],progPos=[0,0],progRunning=false;
+let progQueue=[],progPos=[0,0],progRunning=false,progRuns=0,progBest=0;
+// Сколько шагов от каждой клетки до PC1 в обход препятствий — для прогресса в панели ведущей.
+const progDist=(()=>{
+  const d={'4,4':0},queue=[[4,4]];
+  while(queue.length){const [r,c]=queue.shift();for(const [dr,dc] of [[1,0],[-1,0],[0,1],[0,-1]]){const k=(r+dr)+','+(c+dc);
+    if(r+dr<0||r+dr>4||c+dc<0||c+dc>4||blocks.has(k)||k in d)continue;d[k]=d[r+','+c]+1;queue.push([r+dr,c+dc])}}
+  return d;
+})();
 function buildProgBoard(){
   let b=q('#progBoard');b.innerHTML='';
   for(let r=0;r<5;r++)for(let c=0;c<5;c++){let d=document.createElement('div');d.className='cell';d.dataset.pos=r+','+c;if(blocks.has(r+','+c))d.classList.add('block');if(r===4&&c===4){d.classList.add('goal');d.innerHTML='<div class="pc-goal"><div class="pc-goal-monitor"></div><small>РАБОЧИЙ ПК</small><b>PC1</b></div>';}b.appendChild(d)}renderProgPlayer()
@@ -222,14 +233,14 @@ function renderProgPlayer(){
 }
 function renderProgQueue(badIndex=-1,activeIndex=-1){
   q('#progQueue').innerHTML=progQueue.map((x,i)=>'<span class="qitem '+(i===badIndex?'bad ':'')+(i===activeIndex?'active':'')+'">'+(i+1)+' · '+x+'</span>').join('');
-  q('#progSteps').textContent=progQueue.length+' команд';updateStatus(currentProgress())
+  q('#progSteps').textContent=progQueue.length+' команд';updateStatus(currentProgress());reportProgress()
 }
-function resetProgGame(){progQueue=[];progPos=[0,0];progRunning=false;buildProgBoard();renderProgQueue();q('#progStepStatus').textContent='Собери программу и нажми «Выполнить».'}
+function resetProgGame(){progQueue=[];progPos=[0,0];progRunning=false;progRuns=0;progBest=progDist['0,0'];buildProgBoard();renderProgQueue();q('#progStepStatus').textContent='Собери программу и нажми «Выполнить».'}
 qa('.prog-cmd').forEach(b=>b.onclick=()=>{if(gameOver||progRunning||progQueue.length>=14)return;progQueue.push(b.dataset.cmd);renderProgQueue()});
 q('#progUndo').onclick=()=>{if(gameOver||progRunning)return;progQueue.pop();renderProgQueue()};
 q('#progClear').onclick=()=>{if(gameOver||progRunning)return;progQueue=[];renderProgQueue()};
 q('#progRun').onclick=async()=>{
-  if(gameOver||progRunning||!progQueue.length)return;progRunning=true;progPos=[0,0];buildProgBoard();
+  if(gameOver||progRunning||!progQueue.length)return;progRunning=true;progRuns++;progPos=[0,0];buildProgBoard();
   const delta={'↑':[-1,0],'↓':[1,0],'←':[0,-1],'→':[0,1]};
   for(let i=0;i<progQueue.length;i++){
     if(gameOver)break;renderProgQueue(-1,i);q('#progStepStatus').textContent='Выполняется команда '+(i+1)+' из '+progQueue.length+'…';await new Promise(r=>setTimeout(r,800));
@@ -237,9 +248,9 @@ q('#progRun').onclick=async()=>{
     if(nr<0||nr>4||nc<0||nc>4||blocks.has(nr+','+nc)){
       renderProgQueue(i);penalty('PROGRAM ERROR','Ошибка на команде №'+(i+1)+'. Котик врезался в препятствие. Исправь алгоритм.',5);log('Ошибка алгоритма на команде '+(i+1),'badtxt');progRunning=false;return
     }
-    progPos=[nr,nc];buildProgBoard()
+    progPos=[nr,nc];progBest=Math.min(progBest,progDist[nr+','+nc]);buildProgBoard()
   }
-  progRunning=false;
+  progRunning=false;reportProgress();
   if(progPos[0]===4&&progPos[1]===4){renderProgQueue();q('#progStepStatus').textContent='PROGRAM COMPLETE · PC1 ДОСТИГНУТ';updateStatus(100);log('Котик успешно дошёл до PC1.','oktxt');setTimeout(()=>finishStage('program'),700)}
   else{penalty('PC1 NOT REACHED','Программа закончилась раньше, чем котик дошёл до рабочего ПК. Добавь или исправь команды.',3);q('#progStepStatus').textContent='PC1 не достигнут — исправь программу.';log('PC1 не достигнут.','badtxt')}
 };
@@ -247,7 +258,7 @@ q('#progRun').onclick=async()=>{
 /* Sysadmin tutorial */
 let tutPort=null;
 function resetSysTutorial(){tutPort=null;qa('.tut-port').forEach(x=>x.classList.remove('sel','link'));q('#sysTutExplain').classList.add('hidden');q('#sysReady').disabled=true}
-qa('.tut-port').forEach(b=>b.onclick=()=>{if(!tutPort){tutPort=b;b.classList.add('sel')}else if(tutPort!==b){tutPort.classList.remove('sel');tutPort.classList.add('link');b.classList.add('link');q('#sysTutExplain').classList.remove('hidden');q('#sysReady').disabled=false;tutPort=null;beep(800)}});
+qa('.tut-port').forEach(b=>b.onclick=()=>{if(!tutPort){tutPort=b;b.classList.add('sel')}else if(tutPort!==b){tutPort.classList.remove('sel');tutPort.classList.add('link');b.classList.add('link');q('#sysTutExplain').classList.remove('hidden');q('#sysReady').disabled=false;tutPort=null;beep(800);reportTutorialDone('sys')}});
 q('#sysReady').onclick=()=>sendReady('sys');
 
 /* Sysadmin game */
@@ -352,7 +363,7 @@ q('#networkArea').addEventListener('click',e=>{
   }
 
   if(ok){
-    beep(760);let count=sysDoneCount();q('#sysLinks').textContent=count+' / 5 LINK';
+    beep(760);let count=sysDoneCount();q('#sysLinks').textContent=count+' / 5 LINK';reportProgress();
     updateStatus(count/5*100);updateSysAlgorithm();log(msg,'oktxt');showFloat('LINK ✓',b.getBoundingClientRect().left,b.getBoundingClientRect().top);
     if(count===5){log('Сеть полностью собрана.','oktxt');showBurst('СЕТЬ ВОССТАНОВЛЕНА · 5/5 LINK');setTimeout(()=>finishStage('sys'),1200)}
   } else failPair(first,b,a,bb);
@@ -361,7 +372,7 @@ q('#networkArea').addEventListener('click',e=>{
 
 /* Security tutorial */
 function resetSecTutorial(){q('#secTrainExplain').classList.add('hidden');q('#secReady').disabled=true}
-q('#secTrainHot').onclick=()=>{q('#secTrainExplain').classList.remove('hidden');q('#secReady').disabled=false;beep(800)};
+q('#secTrainHot').onclick=()=>{q('#secTrainExplain').classList.remove('hidden');q('#secReady').disabled=false;beep(800);reportTutorialDone('sec')};
 q('#secReady').onclick=()=>sendReady('sec');
 
 /* Security game */
@@ -383,18 +394,18 @@ const secCorrect=['mail','site','creds','login'];
 function resetSecGame(){
   secClues=new Set();secSub=1;secOrder=[];q('#secStep1').classList.remove('hidden');q('#secStep2').classList.add('hidden');q('#secStep3').classList.add('hidden');q('#secProgress').textContent='Этап 1 / 3';q('#secWhy').innerHTML='<b>Разбор:</b> после правильного клика здесь появится короткое объяснение.';qa('.candidate.found').forEach(x=>x.classList.remove('found'));initSecChain();updateStatus(0)
 }
-qa('#secMail .clue').forEach(el=>el.onclick=e=>{e.stopPropagation();if(gameOver||secClues.has(el.dataset.clue))return;secClues.add(el.dataset.clue);el.classList.add('found');q('#secWhy').innerHTML=why[el.dataset.clue];beep(760);showFloat('✓', e.clientX, e.clientY);updateStatus(secClues.size/3*33);if(secClues.size===3)setTimeout(()=>{showBurst('УЛИКИ НАЙДЕНЫ');secSub=2;q('#secStep1').classList.add('hidden');q('#secStep2').classList.remove('hidden');q('#secProgress').textContent='Этап 2 / 3';updateStatus(50)},650)});
+qa('#secMail .clue').forEach(el=>el.onclick=e=>{e.stopPropagation();if(gameOver||secClues.has(el.dataset.clue))return;secClues.add(el.dataset.clue);el.classList.add('found');q('#secWhy').innerHTML=why[el.dataset.clue];beep(760);showFloat('✓', e.clientX, e.clientY);updateStatus(secClues.size/3*33);reportProgress();if(secClues.size===3)setTimeout(()=>{showBurst('УЛИКИ НАЙДЕНЫ');secSub=2;q('#secStep1').classList.add('hidden');q('#secStep2').classList.remove('hidden');q('#secProgress').textContent='Этап 2 / 3';updateStatus(50);reportProgress()},650)});
 qa('#secMail .decoy').forEach(el=>el.onclick=()=>{if(gameOver)return;penalty('Ай-ай-ай…','Это не отличие от образца. Пока ты отвлёкся, Red Team получила преимущество.',3);log('Ложная улика.','badtxt')});
 function initSecChain(){
   secOrder=[];q('#secCards').innerHTML='';q('#secSlots').innerHTML='';
   [...secItems].sort(()=>Math.random()-.5).forEach(it=>{let b=document.createElement('button');b.className='card';b.textContent=it.t;b.dataset.id=it.id;b.onclick=()=>{if(gameOver||secOrder.includes(it.id))return;secOrder.push(it.id);b.classList.add('used');renderSecChain()};q('#secCards').appendChild(b)});
   for(let i=0;i<4;i++){let s=document.createElement('div');s.className='slot';s.textContent='ШАГ '+(i+1);q('#secSlots').appendChild(s)}q('#secChainCheck').disabled=true
 }
-function renderSecChain(){qa('#secSlots .slot').forEach((s,i)=>{let it=secItems.find(x=>x.id===secOrder[i]);s.textContent=it?it.t:'ШАГ '+(i+1);s.classList.toggle('fill',!!it)});q('#secChainCheck').disabled=secOrder.length!==4}
+function renderSecChain(){qa('#secSlots .slot').forEach((s,i)=>{let it=secItems.find(x=>x.id===secOrder[i]);s.textContent=it?it.t:'ШАГ '+(i+1);s.classList.toggle('fill',!!it)});q('#secChainCheck').disabled=secOrder.length!==4;reportProgress()}
 q('#secChainReset').onclick=()=>initSecChain();
 q('#secChainCheck').onclick=()=>{
   if(gameOver)return;let ok=secOrder.every((x,i)=>x===secCorrect[i]);
-  if(ok){showBurst('ЦЕПОЧКА ВОССТАНОВЛЕНА');secSub=3;q('#secStep2').classList.add('hidden');q('#secStep3').classList.remove('hidden');q('#secProgress').textContent='Этап 3 / 3';updateStatus(78);beep(800)}
+  if(ok){showBurst('ЦЕПОЧКА ВОССТАНОВЛЕНА');secSub=3;q('#secStep2').classList.add('hidden');q('#secStep3').classList.remove('hidden');q('#secProgress').textContent='Этап 3 / 3';updateStatus(78);beep(800);reportProgress()}
   else{penalty('Немного не так…','События стоят не в том порядке. Подумай, что должно произойти раньше: кража данных или вход с этими данными?',5);log('Цепочка собрана неверно.','badtxt')}
 };
 qa('[data-sec-answer]').forEach(b=>b.onclick=()=>{
@@ -402,6 +413,35 @@ qa('[data-sec-answer]').forEach(b=>b.onclick=()=>{
   if(b.dataset.secAnswer==='ok'){b.classList.add('good','flashok');showBurst('АТАКА ОСТАНОВЛЕНА');updateStatus(100);log('Атака остановлена.','oktxt');setTimeout(()=>finishStage('sec'),700)}
   else{b.classList.add('wrong');setTimeout(()=>b.classList.remove('wrong'),600);penalty('Хи-хи 😈','Не то действие. Я всё ещё в системе, поэтому отнимаю у тебя время. Нужна мера, которая сразу отзовёт мой доступ.',10,FOX_ATTACK,4800);log('Неверная мера реагирования.','badtxt')}
 });
+
+/* Прогресс для панели ведущей: процент и короткое описание того, что ученик делает сейчас */
+function progressNow(){
+  if(currentStage==='program'){
+    const total=progDist['0,0'];
+    if(progRunning)return [ (total-progBest)/total*90, 'Запустил программу из '+progQueue.length+' команд' ];
+    return [ (total-progBest)/total*90, 'Команд в программе: '+progQueue.length+' · запусков: '+progRuns+(progRuns?' · лучшая попытка: до PC1 '+progBest+' кл.':'') ];
+  }
+  if(currentStage==='sys'){
+    const n=sysDoneCount(),dev=Object.values(sysDeviceConnected).filter(Boolean).length;
+    const step=!sysInternetConnected?'подключает Интернет к R1':!sysUplinkMade?'соединяет R1 и SW1':'подключает устройства '+dev+'/3';
+    return [ n/5*100, 'LINK '+n+'/5 · '+step ];
+  }
+  if(currentStage==='sec'){
+    if(secSub===1)return [ secClues.size/3*33, 'Ищет отличия в письме: '+secClues.size+'/3' ];
+    if(secSub===2)return [ 40+secOrder.length*6, 'Собирает цепочку атаки: '+secOrder.length+'/4' ];
+    return [ 80, 'Выбирает меру реагирования' ];
+  }
+  return null;
+}
+let progressTimer=null;
+function reportProgress(){
+  if(progressTimer||gameOver||!currentStage)return;
+  progressTimer=setTimeout(()=>{
+    progressTimer=null;const p=progressNow();
+    if(p&&!gameOver)socket.emit('progress',{stage:currentStage,pct:p[0],detail:p[1]});
+  },250);
+}
+function reportTutorialDone(stage){socket.emit('progress',{stage,pct:100,detail:'Учебное задание выполнено'})}
 
 /* Связь с сервером */
 const ID_KEY='p65.participant';
@@ -434,6 +474,7 @@ function applyState(st){
   }
   if(!me){if(screen!=='avatar')showAvatar();return}
   setAgent();
+  if(me.phase==='locked'){if(screen!=='locked:'+me.stage)showLocked(me.stage);return}
   if(me.phase==='tutorial'){if(screen!=='tutorial:'+me.stage)showTutorial(me.stage);return}
   if(me.phase==='ready'){if(screen!=='wait:'+me.stage)showWait(me.stage);return}
   if(me.phase==='playing'){

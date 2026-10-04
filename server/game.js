@@ -16,6 +16,7 @@ function createSession(title, now) {
     createdAt: now,
     endedAt: null,
     finalAt: null,
+    open: {},          // этапы, обучение которых ведущая уже открыла
     participants: {},
   };
 }
@@ -46,22 +47,64 @@ function join(session, heroId, now, random) {
     name,
     joinedAt: now,
     stage: STAGES[0],
-    phase: 'tutorial', // tutorial → ready → playing → (следующий этап) … → finished
+    phase: 'locked', // locked → tutorial → ready → playing → (следующий этап) … → finished
     results: {},
+    progress: null,
   };
+  enterStage(session, p, STAGES[0], now);
   session.participants[p.id] = p;
   return p;
 }
 
-function advance(p) {
-  const next = STAGES[STAGES.indexOf(p.stage) + 1];
-  if (next) { p.stage = next; p.phase = 'tutorial'; }
-  else { p.stage = null; p.phase = 'finished'; }
+// Что участник делает прямо сейчас — для панели ведущей. at — время последнего действия.
+function setProgress(p, pct, detail, now) {
+  p.progress = { pct: Math.max(0, Math.min(100, Math.round(pct))), detail: String(detail || '').slice(0, 120), at: now };
 }
 
-function ready(p, stage) {
+function isOpen(session, stage) {
+  return !!(session.open && session.open[stage]);
+}
+
+// Участник подошёл к этапу: в обучение, если ведущая его уже открыла, иначе ждёт.
+function enterStage(session, p, stage, now) {
+  p.stage = stage;
+  p.phase = isOpen(session, stage) ? 'tutorial' : 'locked';
+  setProgress(p, 0, '', now);
+}
+
+function advance(session, p, now) {
+  const next = STAGES[STAGES.indexOf(p.stage) + 1];
+  if (next) enterStage(session, p, next, now);
+  else { p.stage = null; p.phase = 'finished'; setProgress(p, 100, '', now); }
+}
+
+// Ведущая открывает обучение этапа: ждущие переходят в него сразу, остальные — когда дойдут.
+function openTutorial(session, stage, now) {
+  if (!STAGES.includes(stage)) throw new Error('Неизвестный этап');
+  session.open = session.open || {};
+  session.open[stage] = true;
+  const opened = [];
+  for (const p of Object.values(session.participants)) {
+    if (p.stage !== stage || p.phase !== 'locked') continue;
+    p.phase = 'tutorial';
+    setProgress(p, 0, '', now);
+    opened.push(p);
+  }
+  return opened;
+}
+
+// Прогресс от клиента принимается только для текущего этапа и только в обучении или игре.
+function progress(p, stage, pct, detail, now) {
+  if (p.stage !== stage || (p.phase !== 'tutorial' && p.phase !== 'playing')) return false;
+  if (!Number.isFinite(pct)) return false;
+  setProgress(p, pct, detail, now);
+  return true;
+}
+
+function ready(p, stage, now) {
   if (p.stage !== stage || p.phase !== 'tutorial') return false;
   p.phase = 'ready';
+  setProgress(p, 100, '', now);
   return true;
 }
 
@@ -72,25 +115,27 @@ function startStage(session, stage, now) {
     if (p.stage !== stage || p.phase !== 'ready') continue;
     p.phase = 'playing';
     p.results[stage] = { status: 'playing', startedAt: now + COUNTDOWN_MS, finishedAt: null, penalty: 0, errors: 0 };
+    setProgress(p, 0, '', now + COUNTDOWN_MS);
     started.push(p);
   }
   return started;
 }
 
-function penalty(p, stage, seconds) {
+function penalty(p, stage, seconds, now) {
   if (p.stage !== stage || p.phase !== 'playing' || !ALLOWED_PENALTIES.includes(seconds)) return false;
   const r = p.results[stage];
   r.penalty += seconds;
   r.errors += 1;
+  if (p.progress) p.progress.at = now;
   return true;
 }
 
-function finish(p, stage, now) {
+function finish(session, p, stage, now) {
   if (p.stage !== stage || p.phase !== 'playing') return null;
   const r = p.results[stage];
   r.finishedAt = Math.max(now, r.startedAt);
   r.status = 'done';
-  advance(p);
+  advance(session, p, now);
   return r;
 }
 
@@ -102,7 +147,7 @@ function stopStage(session, stage, now) {
     const r = p.results[stage];
     r.finishedAt = Math.max(now, r.startedAt);
     r.status = 'stopped';
-    advance(p);
+    advance(session, p, now);
     stopped.push(p);
   }
   return stopped;
@@ -137,11 +182,11 @@ function publicResults(p) {
 function publicParticipant(p) {
   return {
     id: p.id, name: p.name, hero: p.hero, joinedAt: p.joinedAt,
-    stage: p.stage, phase: p.phase, results: publicResults(p), totalSec: totalSec(p),
+    stage: p.stage, phase: p.phase, results: publicResults(p), totalSec: totalSec(p), progress: p.progress || null,
   };
 }
 
 module.exports = {
   STAGES, COUNTDOWN_MS,
-  createSession, join, ready, startStage, penalty, finish, stopStage, timeSec, totalSec, publicParticipant,
+  createSession, join, openTutorial, progress, ready, startStage, penalty, finish, stopStage, timeSec, totalSec, publicParticipant,
 };
