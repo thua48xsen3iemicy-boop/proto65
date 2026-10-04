@@ -15,7 +15,6 @@ function createSession(title, now) {
     title: String(title || '').trim().slice(0, 80) || 'Сеанс',
     createdAt: now,
     endedAt: null,
-    finalAt: null,
     open: {},          // этапы, обучение которых ведущая уже открыла
     participants: {},
   };
