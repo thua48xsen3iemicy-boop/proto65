@@ -25,7 +25,6 @@ main>section,#activeSession>.panel{margin-bottom:16px}
 .stage-counts .ready b{color:var(--g)}
 .stage-counts .playing b{color:var(--y)}
 .stage-card .btn{width:100%}
-.final-row{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:14px}
 
 .table-wrap{overflow-x:auto}
 .results{width:100%;border-collapse:collapse;font-size:14px}

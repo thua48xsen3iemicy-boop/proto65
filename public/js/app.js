@@ -164,11 +164,6 @@ function showStopped(cb){
   o.innerHTML='<div class="cine-box"><div class="cine-photo"><img src="'+FOX_GUIDE+'"></div><div class="cine-text"><div class="tag">ЭТАП ЗАВЕРШЁН</div><h2>Маргарита Евгеньевна остановила этап</h2><p>Время вышло. Этот этап засчитан как незавершённый — переходим дальше.</p><button class="btn cyan" id="stoppedNext">ДАЛЬШЕ</button></div></div>';
   document.body.appendChild(o);o.querySelector('#stoppedNext').onclick=()=>{o.remove();cb()};
 }
-function revealAlly(){
-  let o=document.createElement('div');o.className='cine';
-  o.innerHTML='<div class="cine-box"><div style="font-size:160px;text-align:center">🕷️</div><div class="cine-text"><div class="tag">EXTERNAL CONNECTION DETECTED</div><h2>СОЮЗНИК ПОДКЛЮЧЁН</h2><p>Система восстановлена. Можно запускать физический финал.</p></div></div>';
-  document.body.appendChild(o);q('#allyWait').textContent='СОЮЗНИК ПОДКЛЮЧЁН';setTimeout(()=>o.remove(),5000)
-}
 
 // 5 кадров на каждый этап; второй кадр этапа «Защита» общий для всех героев.
 function comicPanels(h,stage){
@@ -446,7 +441,7 @@ function reportTutorialDone(stage){socket.emit('progress',{stage,pct:100,detail:
 /* Связь с сервером */
 const ID_KEY='p65.participant';
 const socket=io({path:new URL('socket.io',location.href).pathname});
-let lastState=null, clockOffset=0, busy=false, allyShown=false;
+let lastState=null, clockOffset=0, busy=false;
 
 function serverNow(){return Date.now()+clockOffset}
 function loadIdentity(){try{return JSON.parse(localStorage.getItem(ID_KEY))||{}}catch(e){return {}}}
@@ -485,9 +480,6 @@ function applyState(st){
     return
   }
   if(screen!=='final')showFinal();
-  const fin=!!st.session.finalAt;
-  q('#allyWait').textContent=fin?'СОЮЗНИК ПОДКЛЮЧЁН':'ОЖИДАНИЕ ФИНАЛЬНОГО СИГНАЛА…';
-  if(fin&&!allyShown){allyShown=true;revealAlly()}
 }
 
 socket.on('connect',()=>{q('#netStatus').classList.add('hidden');socket.emit('hello',{participantId:loadIdentity().id},applyState)});

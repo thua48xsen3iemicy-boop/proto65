@@ -32,7 +32,7 @@ const io = new Server(server, { serveClient: true });
 // ---------- состояние для клиентов ----------
 
 function sessionInfo(s) {
-  return s && { id: s.id, title: s.title, createdAt: s.createdAt, endedAt: s.endedAt, finalAt: s.finalAt, open: s.open || {} };
+  return s && { id: s.id, title: s.title, createdAt: s.createdAt, endedAt: s.endedAt, open: s.open || {} };
 }
 
 function playerState(pid) {
@@ -205,14 +205,6 @@ io.on('connection', socket => {
     const stopped = game.stopStage(s, msg.stage, Date.now());
     changed(s, stopped.map(p => p.id));
     return { ok: true, stopped: stopped.length };
-  });
-
-  admin('admin:final', () => {
-    const s = activeSession();
-    s.finalAt = Date.now();
-    store.save(s);
-    pushAllPlayers();
-    pushAdmins();
   });
 
   admin('admin:removeParticipant', msg => {

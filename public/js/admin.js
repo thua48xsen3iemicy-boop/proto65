@@ -102,7 +102,6 @@ function render(){
   const ps=s.participants;
   q('#sessionTitleView').textContent=s.title.toUpperCase();
   q('#sessionMeta').textContent='начат '+fmtClock(s.createdAt);
-  q('#countBadge').textContent=ps.length+' чел.';
   q('#stageGrid').innerHTML=STAGES.map((st,i)=>{
     const at=ph=>ps.filter(p=>p.stage===st.id&&p.phase===ph).length;
     const passed=ps.filter(p=>p.results[st.id]&&p.results[st.id].status!=='playing').length;
@@ -115,14 +114,12 @@ function render(){
       '<button class="btn" data-stop="'+st.id+'"'+(playing?'':' disabled')+'>■ ЗАВЕРШИТЬ ЭТАП</button></div>';
   }).join('');
   const done=ps.filter(p=>p.phase==='finished').length;
-  q('#finalBtn').disabled=!!s.finalAt;
-  q('#finalInfo').textContent=s.finalAt?'Сигнал отправлен в '+fmtClock(s.finalAt)+'. Кто дойдёт до финала позже, тоже увидит союзника.':'Прошли игру: '+done+' из '+ps.length+'.';
+  q('#countBadge').textContent=ps.length+' чел. · прошли игру: '+done;
   renderTable(q('#liveTable'),ps,true);
 }
 
 q('#createForm').onsubmit=async e=>{e.preventDefault();const r=await call('admin:createSession',{title:q('#sessionTitle').value});if(r.ok)q('#sessionTitle').value=''};
 q('#endSession').onclick=()=>{if(confirm('Завершить сеанс? Участники увидят экран «Сеанс завершён», результаты сохранятся в истории.'))call('admin:endSession')};
-q('#finalBtn').onclick=()=>call('admin:final');
 q('#stageGrid').onclick=e=>{
   const b=e.target.closest('button');if(!b)return;
   if(b.dataset.open)call('admin:openTutorial',{stage:b.dataset.open});
