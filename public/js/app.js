@@ -12,14 +12,12 @@ const FOX_GUIDE='images/mentor-guide.webp';
 const FOX_ATTACK='images/mentor-attack.webp';
 const FOX_ANGRY='images/mentor-angry.webp';
 
-let hero=null;
-let waitingStage=null;
+const STAGES=['program','sys','sec'];
+let hero=null;          // объект героя из heroes (картинка, имя)
+let me=null;            // участник, как его видит сервер
+let screen='';          // что показано: avatar, tutorial:<этап>, wait:<этап>, countdown:<этап>, game:<этап>, comic:<этап>, final, notice
 let currentStage=null;
-let ready={program:false,sys:false,sec:false};
-let simReady={program:0,sys:0,sec:0};
-let completed={program:false,sys:false,sec:false};
-let errors=0, timerId=null, elapsed=0, penaltySeconds=0, gameOver=false;
-let results={program:null,sys:null,sec:null};
+let errors=0, timerId=null, elapsed=0, penaltySeconds=0, stageStartedAt=0, gameOver=false;
 
 function beep(f=440,d=.08,v=.02){try{let A=window.AudioContext||window.webkitAudioContext,x=new A(),o=x.createOscillator(),g=x.createGain();o.frequency.value=f;g.gain.value=v;o.connect(g);g.connect(x.destination);o.start();o.stop(x.currentTime+d);o.onended=()=>x.close()}catch(e){}}
 
@@ -46,7 +44,7 @@ function log(msg,cls='infotxt'){let d=document.createElement('div');d.className=
 function stageName(s){return s==='program'?'ПРОГРАММИСТ':s==='sys'?'СИСТЕМНЫЙ АДМИНИСТРАТОР':'ЗАЩИТА ИНФОРМАЦИИ'}
 function updateTop(tag){q('#stageTag').textContent=tag}
 function updateStatus(progress=0){
-  q('#statusStage').textContent=stageName(currentStage||waitingStage||'program');
+  q('#statusStage').textContent=stageName(currentStage||(me&&me.stage)||'program');
   q('#statusTime').textContent=currentStage?formatTime(elapsed+penaltySeconds):'—';
   q('#statusPenalty').textContent='+'+penaltySeconds+' сек';
   q('#statusErrors').textContent=errors;
@@ -54,22 +52,20 @@ function updateStatus(progress=0){
   q('#statusBar').style.width=Math.max(0,Math.min(100,progress))+'%';
 }
 function formatTime(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
-function startTimer(){
-  clearInterval(timerId);elapsed=0;penaltySeconds=0;gameOver=false;
-  q('#timer').textContent='00:00';q('#statusTime').textContent='00:00';q('#statusPenalty').textContent='+0 сек';
-  timerId=setInterval(()=>{
-    if(gameOver){clearInterval(timerId);return}
-    elapsed++;
-    q('#timer').textContent=formatTime(elapsed+penaltySeconds);
-    q('#statusTime').textContent=formatTime(elapsed+penaltySeconds);
-  },1000)
+function renderTime(){
+  const t=formatTime(elapsed+penaltySeconds);
+  q('#timer').textContent=t;q('#statusTime').textContent=t;q('#statusPenalty').textContent='+'+penaltySeconds+' сек';
+}
+// Время идёт от момента старта, который назначил сервер, поэтому обновление страницы его не сбрасывает.
+function startTimer(startedAt){
+  clearInterval(timerId);stageStartedAt=startedAt;
+  const tick=()=>{elapsed=Math.max(0,Math.floor((serverNow()-stageStartedAt)/1000));renderTime()};
+  tick();timerId=setInterval(tick,1000);
 }
 function addPenalty(sec){
   if(gameOver)return;
-  penaltySeconds+=sec;
-  q('#timer').textContent=formatTime(elapsed+penaltySeconds);
-  q('#statusTime').textContent=formatTime(elapsed+penaltySeconds);
-  q('#statusPenalty').textContent='+'+penaltySeconds+' сек';
+  penaltySeconds+=sec;renderTime();
+  socket.emit('penalty',{stage:currentStage,seconds:sec});
 }
 function penalty(title,text,seconds,img=FOX_ANGRY,ms=3600){
   if(gameOver)return;errors++;addPenalty(seconds);updateStatus(currentProgress());
@@ -77,7 +73,7 @@ function penalty(title,text,seconds,img=FOX_ANGRY,ms=3600){
   p.innerHTML='<div class="penalty-card"><img src="'+img+'"><div class="penalty-text"><h2>'+title+'</h2><p>'+text+'</p><div class="minus">− '+seconds+' сек</div></div></div>';
   document.body.appendChild(p);beep(120,.14,.03);setTimeout(()=>p.remove(),ms)
 }
-function countdown(stage,cb){
+function countdown(stage,startedAt,cb){
   const titles={
     program:'МОДУЛЬ 1 · МАРШРУТ К РАБОЧЕМУ ПК',
     sys:'МОДУЛЬ 2 · ПОДКЛЮЧЕНИЕ PC1 К СЕТИ',
@@ -88,9 +84,10 @@ function countdown(stage,cb){
     sys:'Маргарита Евгеньевна запускает сетевой модуль. Цель — собрать рабочую топологию и поднять LINK.',
     sec:'Маргарита Евгеньевна переходит в Red Team. Теперь нужно защитить уже восстановленную систему.'
   };
+  const left=()=>Math.max(0,Math.ceil((startedAt-serverNow())/1000));
   let o=document.createElement('div');o.className='cine';
-  o.innerHTML='<div class="cine-box"><div class="cine-photo"><img src="'+(stage==='sec'?FOX_ATTACK:FOX_GUIDE)+'"></div><div class="cine-text"><div class="tag">'+titles[stage]+'</div><h2>'+texts[stage]+'</h2><div class="countdown" id="cd">3</div></div></div>';
-  document.body.appendChild(o);let n=3;let id=setInterval(()=>{n--;q('#cd').textContent=n;if(n<=0){clearInterval(id);o.remove();cb()}},1000)
+  o.innerHTML='<div class="cine-box"><div class="cine-photo"><img src="'+(stage==='sec'?FOX_ATTACK:FOX_GUIDE)+'"></div><div class="cine-text"><div class="tag">'+titles[stage]+'</div><h2>'+texts[stage]+'</h2><div class="countdown" id="cd">'+left()+'</div></div></div>';
+  document.body.appendChild(o);let id=setInterval(()=>{const n=left();q('#cd').textContent=n;if(n<=0){clearInterval(id);o.remove();cb()}},200)
 }
 function currentProgress(){
   if(currentStage==='program')return Math.min(95,progQueue.length*10);
@@ -98,53 +95,70 @@ function currentProgress(){
   if(currentStage==='sec')return secSub===1?secClues.size/3*33:secSub===2?66:88;
   return 0
 }
+function showAvatar(){
+  screen='avatar';hideAll();currentStage=null;hero=null;q('#avatarScreen').classList.remove('hidden');
+  qa('.hero-card').forEach(x=>x.classList.remove('sel'));q('#confirmHero').disabled=true;
+  q('#miniAvatar').innerHTML='';q('#agentName').textContent='АГЕНТ · НЕ ВЫБРАН';q('#timer').textContent='--:--';updateTop('СТАРТ')
+}
 function showTutorial(stage){
-  hideAll();currentStage=null;waitingStage=null;errors=0;q('#timer').textContent='--:--';
+  screen='tutorial:'+stage;hideAll();currentStage=null;errors=0;q('#timer').textContent='--:--';
   q('#'+(stage==='program'?'progTutorial':stage==='sys'?'sysTutorial':'secTutorial')).classList.remove('hidden');
   updateTop('ОБУЧЕНИЕ · '+stageName(stage))
   if(stage==='program')resetProgTutorial();
   if(stage==='sys')resetSysTutorial();
   if(stage==='sec')resetSecTutorial();
 }
-function sendReady(stage){
-  ready[stage]=true;waitingStage=stage;currentStage=null;hideAll();q('#waitScreen').classList.remove('hidden');
-  q('#waitTitle').textContent='Готовность отправлена Маргарите Евгеньевне';
-  q('#waitText').textContent='Жди, пока Маргарита Евгеньевна соберёт готовность всех 15 участников к этапу «'+stageName(stage)+'».';
-  q('#waitStatus').textContent='ОЖИДАНИЕ КОМАНДЫ МАРГАРИТЫ ЕВГЕНЬЕВНЫ…';
-  q('#timer').textContent='--:--';updateTop('ГОТОВ · '+stageName(stage));renderAdmin()
+function showMessage(title,text,status,icon){
+  hideAll();q('#waitScreen').classList.remove('hidden');q('#timer').textContent='--:--';
+  q('#waitIcon').textContent=icon;q('#waitTitle').textContent=title;q('#waitText').textContent=text;q('#waitStatus').textContent=status;
 }
-function startStage(stage){
-  currentStage=stage;waitingStage=null;errors=0;hideAll();q('#gameShell').classList.remove('hidden');
+function showWait(stage){
+  screen='wait:'+stage;currentStage=null;updateTop('ГОТОВ · '+stageName(stage));
+  showMessage('Готовность отправлена Маргарите Евгеньевне','Жди, пока Маргарита Евгеньевна запустит этап «'+stageName(stage)+'».','ОЖИДАНИЕ КОМАНДЫ МАРГАРИТЫ ЕВГЕНЬЕВНЫ…','✓');
+}
+function showNotice(title,text,status){
+  screen='notice';currentStage=null;updateTop('ОЖИДАНИЕ');showMessage(title,text,status,'⏳');
+}
+function sendReady(stage){
+  showWait(stage);
+  socket.emit('ready',{stage},applyState);
+}
+function startStage(stage,r){
+  screen='game:'+stage;currentStage=stage;errors=r.errors;penaltySeconds=r.penalty;hideAll();q('#gameShell').classList.remove('hidden');
   ['progGame','sysGame','secGame'].forEach(id=>q('#'+id).classList.add('hidden'));
   q('#'+(stage==='program'?'progGame':stage==='sys'?'sysGame':'secGame')).classList.remove('hidden');
   q('#log').innerHTML='';updateTop(stageName(stage));gameOver=false;
-  if(stage==='program'){resetProgGame();startTimer();log('Модуль 1: маршрут котика к PC1 запущен.')}
-  if(stage==='sys'){resetSysGame();startTimer();log('Модуль 2: подключение PC1 к сети запущено.')}
-  if(stage==='sec'){resetSecGame();startTimer();log('Red Team начала атаку.','badtxt')}
-  updateStatus(0)
+  if(stage==='program'){resetProgGame();log('Модуль 1: маршрут котика к PC1 запущен.')}
+  if(stage==='sys'){resetSysGame();log('Модуль 2: подключение PC1 к сети запущено.')}
+  if(stage==='sec'){resetSecGame();log('Red Team начала атаку.','badtxt')}
+  startTimer(r.startedAt);updateStatus(0)
 }
 function finishStage(stage){
   if(gameOver)return;
-  clearInterval(timerId);
-  completed[stage]=true;
-  results[stage]={time:elapsed+penaltySeconds,penalty:penaltySeconds,errors};
-  q('#timer').textContent='--:--';
-  if(stage==='program'){
-    showProgramComic(()=>showTutorial('sys'));
-    return;
-  }
-  if(stage==='sys'){
-    showNetworkComic(()=>showTutorial('sec'));
-    return;
-  }
-  showSecurityVictory(()=>showFinal());
+  gameOver=true;clearInterval(timerId);q('#timer').textContent='--:--';
+  screen='comic:'+stage;busy=true; // пока идёт комикс, обновления состояния не перебивают его
+  socket.emit('finish',{stage},applyState);
+  const next=()=>{busy=false;applyState(lastState)};
+  if(stage==='program')showProgramComic(next);
+  else if(stage==='sys')showNetworkComic(next);
+  else showSecurityVictory(next);
+}
+function resultText(r){
+  if(!r||r.timeSec==null)return '—';
+  const t='время: '+formatTime(r.timeSec)+' · штраф +'+r.penalty+' сек · ошибок: '+r.errors;
+  return r.status==='stopped'?'не завершён · '+t:t;
 }
 function showFinal(){
-  hideAll();q('#finalScreen').classList.remove('hidden');q('#timer').textContent='--:--';updateTop('МИССИЯ ВЫПОЛНЕНА');
-  q('#finalProg').textContent='время: '+formatTime(results.program.time)+' · штраф +'+results.program.penalty+' сек · ошибок: '+results.program.errors;
-  q('#finalSys').textContent='время: '+formatTime(results.sys.time)+' · штраф +'+results.sys.penalty+' сек · ошибок: '+results.sys.errors;
-  q('#finalSec').textContent='время: '+formatTime(results.sec.time)+' · штраф +'+results.sec.penalty+' сек · ошибок: '+results.sec.errors;
-  q('#adminFinal').classList.remove('hidden');renderAdmin()
+  screen='final';hideAll();q('#finalScreen').classList.remove('hidden');q('#timer').textContent='--:--';updateTop('МИССИЯ ВЫПОЛНЕНА');
+  q('#finalProg').textContent=resultText(me.results.program);
+  q('#finalSys').textContent=resultText(me.results.sys);
+  q('#finalSec').textContent=resultText(me.results.sec);
+  q('#finalTotal').textContent=me.totalSec!=null?'Общее время: '+formatTime(me.totalSec):'';
+}
+function showStopped(cb){
+  let o=document.createElement('div');o.className='cine';
+  o.innerHTML='<div class="cine-box"><div class="cine-photo"><img src="'+FOX_GUIDE+'"></div><div class="cine-text"><div class="tag">ЭТАП ЗАВЕРШЁН</div><h2>Маргарита Евгеньевна остановила этап</h2><p>Время вышло. Этот этап засчитан как незавершённый — переходим дальше.</p><button class="btn cyan" id="stoppedNext">ДАЛЬШЕ</button></div></div>';
+  document.body.appendChild(o);o.querySelector('#stoppedNext').onclick=()=>{o.remove();cb()};
 }
 function revealAlly(){
   let o=document.createElement('div');o.className='cine';
@@ -160,7 +174,7 @@ function comicPanels(h,stage){
 function showRealComic(title, stageKey, button, cb){
   const panels=comicPanels(hero,stageKey);
   let o=document.createElement('div');o.className='storyboard-overlay';
-  o.innerHTML='<div class="storyboard"><div class="storyboard-head"><h2>'+title+'</h2><div class="story-agent"><img src="'+hero.img+'"><span>'+hero.n+'</span></div></div><div class="story-grid" id="storyGrid"></div><button class="btn green story-next" id="storyNext" disabled>'+button+'</button></div>';
+  o.innerHTML='<div class="storyboard"><div class="storyboard-head"><h2>'+title+'</h2><div class="story-agent"><img src="'+hero.img+'"><span>'+me.name+'</span></div></div><div class="story-grid" id="storyGrid"></div><button class="btn green story-next" id="storyNext" disabled>'+button+'</button></div>';
   document.body.appendChild(o);
   const grid=o.querySelector('#storyGrid');
   panels.forEach((src,i)=>{
@@ -181,7 +195,10 @@ function showSecurityVictory(cb){showRealComic('КОМИКС · RED TEAM ОСТ�
 
 /* Hero selection */
 heroes.forEach(h=>{let b=document.createElement('button');b.className='hero-card';b.innerHTML='<img src="'+h.img+'"><div class="hero-name">'+h.n+'</div>';b.onclick=()=>{qa('.hero-card').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');hero=h;q('#confirmHero').disabled=false};q('#heroGrid').appendChild(b)});
-q('#confirmHero').onclick=()=>{q('#miniAvatar').innerHTML='<img src="'+hero.img+'">';q('#agentName').textContent='АГЕНТ · '+hero.n.toUpperCase();showTutorial('program')};
+q('#confirmHero').onclick=()=>{
+  q('#confirmHero').disabled=true;
+  socket.emit('join',{hero:hero.id},res=>{q('#confirmHero').disabled=false;if(res.error){alert(res.error);return}applyState(res.state)});
+};
 
 /* Programmer tutorial */
 let trainProgQ=[];
@@ -386,18 +403,52 @@ qa('[data-sec-answer]').forEach(b=>b.onclick=()=>{
   else{b.classList.add('wrong');setTimeout(()=>b.classList.remove('wrong'),600);penalty('Хи-хи 😈','Не то действие. Я всё ещё в системе, поэтому отнимаю у тебя время. Нужна мера, которая сразу отзовёт мой доступ.',10,FOX_ATTACK,4800);log('Неверная мера реагирования.','badtxt')}
 });
 
-/* Admin demo */
-function renderAdmin(){
-  let st=waitingStage||currentStage||(!completed.program?'program':!completed.sys?'sys':'sec');
-  let r=(ready[st]?1:0)+simReady[st];
-  q('#agentBoxes').innerHTML='';
-  for(let i=1;i<=15;i++){let d=document.createElement('div');d.className='agentbox '+(i<=r?'ready':'');d.textContent='AGENT '+String(i).padStart(2,'0')+(i<=r?' ✓':'');q('#agentBoxes').appendChild(d)}
-  q('#adminReadyText').textContent='Этап: '+stageName(st)+' · готовы: '+r+' / 15';
-  q('#adminStart').disabled=!(waitingStage&&r===15)
-}
-q('#adminTrigger').onclick=()=>{renderAdmin();q('#adminModal').classList.remove('hidden')};
-q('#adminClose').onclick=()=>q('#adminModal').classList.add('hidden');
-q('#simulateOthers').onclick=()=>{if(!waitingStage){alert('Сначала участник должен пройти обучение и отправить готовность.');return}simReady[waitingStage]=14;renderAdmin()};
-q('#adminStart').onclick=()=>{if(!waitingStage)return;let st=waitingStage,r=(ready[st]?1:0)+simReady[st];if(r<15)return;q('#adminModal').classList.add('hidden');q('#waitStatus').textContent='МАРГАРИТА ЕВГЕНЬЕВНА ПРИНЯЛА ГОТОВНОСТЬ. ПРИГОТОВЬСЯ…';countdown(st,()=>startStage(st))};
-q('#adminFinal').onclick=()=>{q('#adminModal').classList.add('hidden');revealAlly()};
+/* Связь с сервером */
+const ID_KEY='p65.participant';
+const socket=io({path:new URL('socket.io',location.href).pathname});
+let lastState=null, clockOffset=0, busy=false, allyShown=false;
 
+function serverNow(){return Date.now()+clockOffset}
+function loadIdentity(){try{return JSON.parse(localStorage.getItem(ID_KEY))||{}}catch(e){return {}}}
+function saveIdentity(){try{if(me)localStorage.setItem(ID_KEY,JSON.stringify({id:me.id}))}catch(e){}}
+function setAgent(){
+  const h=heroes.find(x=>x.id===me.hero);
+  if(hero!==h){hero=h;q('#miniAvatar').innerHTML='<img src="'+h.img+'">'}
+  q('#agentName').textContent='АГЕНТ · '+me.name.toUpperCase();
+}
+
+// Экран всегда выбирается по состоянию с сервера — так обновление страницы возвращает участника туда, где он был.
+function applyState(st){
+  if(!st||!st.now)return;
+  const hadSession=!!(lastState&&lastState.session);
+  lastState=st;clockOffset=st.now-Date.now();me=st.me;saveIdentity();
+  if(busy)return; // идёт комикс или отсчёт — состояние применится после
+  if(screen.startsWith('game:')&&!(me&&me.phase==='playing'&&screen==='game:'+me.stage)){
+    gameOver=true;clearInterval(timerId);
+    if(me&&st.session){busy=true;screen='stopped';showStopped(()=>{busy=false;applyState(lastState)});return}
+  }
+  if(!st.session){
+    if(hadSession)showNotice('Сеанс завершён','Спасибо за игру! Маргарита Евгеньевна закрыла сеанс.','СЕАНС ЗАВЕРШЁН');
+    else showNotice('Сеанс ещё не начат','Подожди, пока Маргарита Евгеньевна запустит сеанс.','ОЖИДАНИЕ СЕАНСА…');
+    return
+  }
+  if(!me){if(screen!=='avatar')showAvatar();return}
+  setAgent();
+  if(me.phase==='tutorial'){if(screen!=='tutorial:'+me.stage)showTutorial(me.stage);return}
+  if(me.phase==='ready'){if(screen!=='wait:'+me.stage)showWait(me.stage);return}
+  if(me.phase==='playing'){
+    if(screen==='game:'+me.stage)return;
+    const stage=me.stage,r=me.results[stage];
+    if(r.startedAt-serverNow()>300){busy=true;screen='countdown:'+stage;countdown(stage,r.startedAt,()=>{busy=false;startStage(stage,r);applyState(lastState)})}
+    else startStage(stage,r);
+    return
+  }
+  if(screen!=='final')showFinal();
+  const fin=!!st.session.finalAt;
+  q('#allyWait').textContent=fin?'СОЮЗНИК ПОДКЛЮЧЁН':'ОЖИДАНИЕ ФИНАЛЬНОГО СИГНАЛА…';
+  if(fin&&!allyShown){allyShown=true;revealAlly()}
+}
+
+socket.on('connect',()=>{q('#netStatus').classList.add('hidden');socket.emit('hello',{participantId:loadIdentity().id},applyState)});
+socket.on('disconnect',()=>q('#netStatus').classList.remove('hidden'));
+socket.on('state',applyState);

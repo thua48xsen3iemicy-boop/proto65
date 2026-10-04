@@ -35,6 +35,7 @@ button{font:inherit}
 .right{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .badge{border:1px solid var(--line);border-radius:999px;padding:7px 10px;color:var(--m);font-size:12px}
 .badge.ok{color:var(--g);border-color:#286a4a}
+.badge-bad{color:#ff9ba7;border-color:#8f3142;background:#2a0f15;font-weight:900}
 .timer{font-weight:950;color:var(--y);font-variant-numeric:tabular-nums;font-size:22px}
 .avatar-mini{width:42px;height:42px;border-radius:50%;overflow:hidden;border:1px solid var(--line);background:#101b25}
 .avatar-mini img{width:100%;height:100%;object-fit:cover}
@@ -279,18 +280,11 @@ linear-gradient(rgba(31,65,82,.12) 1px,transparent 1px),linear-gradient(90deg,rg
   .story-cell{min-height:140px}
 }
 
-/* ============ Панель ведущей ============ */
-.admin-trigger{position:fixed;right:18px;bottom:18px;z-index:45;font-size:12px;opacity:.83}
-.admin-modal{position:fixed;inset:0;z-index:100;background:#02070bd9;display:grid;place-items:center;padding:20px}
-.admin-card{max-width:780px;width:100%;background:#0c1822;border:1px solid #82404c;border-radius:18px;padding:24px}
-.agents{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:16px 0}
-.agentbox{border:1px solid #294556;background:#0a141d;border-radius:9px;padding:9px;text-align:center;font-size:11px;color:#637b8d}
-.agentbox.ready{color:var(--g);border-color:#286a4a;background:#0d271c}
-
 /* ============ Финал ============ */
 .final-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0}
 .final-item{border:1px solid #2d704d;background:#0f2a1d;border-radius:14px;padding:16px}
 .final-item b{display:block;color:var(--g);font-size:18px;margin-bottom:5px}
+.final-total{font-size:20px;font-weight:950;color:var(--y)}
 .final-fox{max-width:380px;margin:14px auto;border:1px solid #623744;border-radius:18px;background:#070d11;padding:10px}
 .final-fox img{display:block;width:100%;height:auto;transform:scaleX(-1);filter:saturate(.72) brightness(.78)}
 .final-remark{max-width:620px;margin:14px auto 0;border:1px solid #6a3643;border-radius:14px;background:#12090d;padding:14px 16px;color:#ffd2d8;line-height:1.55}
