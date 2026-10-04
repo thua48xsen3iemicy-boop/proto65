@@ -1,0 +1,18 @@
+{
+  "name": "proto65",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Протокол 65 — обучающая игра о трёх ИТ-профессиях с панелью ведущей",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "socket.io": "^4.8.4"
+  }
+}

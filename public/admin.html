@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Протокол 65 — панель ведущей</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+<div class="app">
+<div class="top">
+  <div class="brand"><div class="logo">65</div><div><b>ПАНЕЛЬ ВЕДУЩЕЙ</b><small>Протокол 65 · Маргарита Евгеньевна</small></div></div>
+  <div class="right">
+    <span class="badge badge-bad hidden" id="netStatus">НЕТ СВЯЗИ С СЕРВЕРОМ</span>
+    <span class="badge" id="sessionBadge">НЕТ СЕАНСА</span>
+  </div>
+</div>
+
+<!-- Вход -->
+<section id="pinScreen" class="panel center">
+  <form id="pinForm" class="pin-card">
+    <div style="font-size:46px">🔐</div>
+    <h1>Вход для ведущей</h1>
+    <p class="muted">Введите PIN-код панели</p>
+    <input id="pinInput" class="field" type="password" inputmode="numeric" autocomplete="current-password" maxlength="12" required>
+    <button class="btn cyan" id="pinSubmit">ВОЙТИ</button>
+    <p id="pinError" class="form-error"></p>
+  </form>
+</section>
+
+<main id="adminMain" class="hidden">
+  <!-- Нет сеанса -->
+  <section id="noSession" class="panel hidden">
+    <div class="head"><h2>НОВЫЙ СЕАНС</h2></div>
+    <div class="body">
+      <form id="createForm" class="inline-form">
+        <input id="sessionTitle" class="field" placeholder="Например: 5Б · 4 октября" maxlength="80">
+        <button class="btn green">НАЧАТЬ СЕАНС</button>
+      </form>
+      <p class="muted">Участники открывают адрес игры и выбирают героя — имя им присваивается автоматически. Сколько придёт человек, заранее знать не нужно.</p>
+    </div>
+  </section>
+
+  <!-- Активный сеанс -->
+  <section id="activeSession" class="hidden">
+    <div class="panel">
+      <div class="head">
+        <h2 id="sessionTitleView">—</h2>
+        <div class="head-actions"><span class="badge" id="sessionMeta"></span><button id="endSession" class="btn red">ЗАВЕРШИТЬ СЕАНС</button></div>
+      </div>
+      <div class="body">
+        <div class="stage-grid" id="stageGrid"></div>
+        <div class="final-row">
+          <button id="finalBtn" class="btn green">🕷 ФИНАЛ: ВЫЗВАТЬ СОЮЗНИКА</button>
+          <span id="finalInfo" class="muted"></span>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="head"><h2>УЧАСТНИКИ</h2><span class="badge" id="countBadge">0</span></div>
+      <div class="body"><div class="table-wrap"><table class="results" id="liveTable"></table></div></div>
+    </div>
+  </section>
+
+  <!-- История -->
+  <section class="panel">
+    <div class="head"><h2>ПРОШЛЫЕ СЕАНСЫ</h2><button id="refreshHistory" class="btn">ОБНОВИТЬ</button></div>
+    <div class="body"><div id="historyList" class="history"></div></div>
+  </section>
+</main>
+</div>
+
+<div id="historyModal" class="modal hidden">
+  <div class="modal-card panel">
+    <div class="head"><h2 id="historyTitle">—</h2><button class="btn" id="historyClose">ЗАКРЫТЬ</button></div>
+    <div class="body"><div class="table-wrap"><table class="results" id="historyTable"></table></div></div>
+  </div>
+</div>
+
+<script src="socket.io/socket.io.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>
