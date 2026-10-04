@@ -32,7 +32,7 @@ const io = new Server(server, { serveClient: true });
 // ---------- состояние для клиентов ----------
 
 function sessionInfo(s) {
-  return s && { id: s.id, title: s.title, createdAt: s.createdAt, endedAt: s.endedAt, finalAt: s.finalAt };
+  return s && { id: s.id, title: s.title, createdAt: s.createdAt, endedAt: s.endedAt, finalAt: s.finalAt, open: s.open || {} };
 }
 
 function playerState(pid) {
@@ -127,18 +127,23 @@ io.on('connection', socket => {
 
   socket.on('ready', (msg, ack) => {
     const m = me();
-    if (m && game.ready(m.p, msg && msg.stage)) changed(m.s, [m.p.id]);
+    if (m && game.ready(m.p, msg && msg.stage, Date.now())) changed(m.s, [m.p.id]);
     reply(ack, playerState(socket.data.pid));
   });
 
   socket.on('penalty', msg => {
     const m = me();
-    if (m && game.penalty(m.p, msg && msg.stage, Number(msg && msg.seconds))) changed(m.s, []);
+    if (m && game.penalty(m.p, msg && msg.stage, Number(msg && msg.seconds), Date.now())) changed(m.s, []);
+  });
+
+  socket.on('progress', msg => {
+    const m = me();
+    if (m && msg && game.progress(m.p, msg.stage, Number(msg.pct), msg.detail, Date.now())) changed(m.s, []);
   });
 
   socket.on('finish', (msg, ack) => {
     const m = me();
-    if (m && game.finish(m.p, msg && msg.stage, Date.now())) changed(m.s, [m.p.id]);
+    if (m && game.finish(m.s, m.p, msg && msg.stage, Date.now())) changed(m.s, [m.p.id]);
     reply(ack, playerState(socket.data.pid));
   });
 
@@ -179,6 +184,13 @@ io.on('connection', socket => {
     store.saveNow(s);
     pushAllPlayers();
     pushAdmins();
+  });
+
+  admin('admin:openTutorial', msg => {
+    const s = activeSession();
+    const opened = game.openTutorial(s, msg.stage, Date.now());
+    changed(s, opened.map(p => p.id));
+    return { ok: true, opened: opened.length };
   });
 
   admin('admin:startStage', msg => {

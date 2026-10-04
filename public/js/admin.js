@@ -30,11 +30,20 @@ async function auth(pin){
 q('#pinForm').onsubmit=e=>{e.preventDefault();auth(q('#pinInput').value.trim())};
 
 /* ---------- таблица результатов ---------- */
-const PHASES={tutorial:'Обучение',ready:'Готов',playing:'Играет',finished:'Прошёл игру'};
+const PHASES={locked:'Ждёт обучения',tutorial:'Обучение',ready:'Готов',playing:'Играет',finished:'Прошёл игру'};
+const IDLE_MS=90*1000; // столько без действий — подсвечиваем, что ученик, возможно, застрял
+// Статус, полоска прогресса и что ученик делает прямо сейчас.
 function statusCell(p){
   const n=STAGES.findIndex(s=>s.id===p.stage)+1;
   const text=p.phase==='finished'?PHASES.finished:PHASES[p.phase]+' · этап '+n;
-  return '<span class="status '+p.phase+'">'+text+'</span>';
+  let h='<span class="status '+p.phase+'">'+text+'</span>';
+  if(p.phase==='tutorial'||p.phase==='playing'){
+    const pr=p.progress||{pct:0,detail:'',at:0};
+    const detail=pr.detail||(p.phase==='tutorial'?'Читает обучение':'Начинает этап');
+    h+='<div class="progress"><div class="progress-bar"><div style="width:'+pr.pct+'%"></div></div><span>'+pr.pct+'%</span></div>'+
+      '<span class="sub">'+esc(detail)+'</span><span class="idle" data-at="'+pr.at+'"></span>';
+  }
+  return h;
 }
 function stageCell(r,live){
   if(!r)return '<span class="sub">—</span>';
@@ -68,11 +77,15 @@ function renderTable(table,list,live){
   table.innerHTML=h+'</tbody>';
   tick();
 }
-// Живое время у тех, кто сейчас играет: фактическое время + штрафы.
+// Живое время у тех, кто сейчас играет (фактическое время + штрафы), и сколько ученик бездействует.
 function tick(){
   document.querySelectorAll('.t.live').forEach(el=>{
     const ms=serverNow()-Number(el.dataset.start);
     el.textContent=ms<0?'отсчёт…':'▶ '+fmt(ms/1000+Number(el.dataset.penalty));
+  });
+  document.querySelectorAll('.idle').forEach(el=>{
+    const ms=serverNow()-Number(el.dataset.at);
+    el.textContent=Number(el.dataset.at)&&ms>IDLE_MS?'нет действий '+Math.floor(ms/60000)+' мин '+String(Math.floor(ms/1000)%60).padStart(2,'0')+' с':'';
   });
 }
 setInterval(tick,1000);
@@ -93,11 +106,12 @@ function render(){
   q('#stageGrid').innerHTML=STAGES.map((st,i)=>{
     const at=ph=>ps.filter(p=>p.stage===st.id&&p.phase===ph).length;
     const passed=ps.filter(p=>p.results[st.id]&&p.results[st.id].status!=='playing').length;
-    const ready=at('ready'),playing=at('playing');
+    const ready=at('ready'),playing=at('playing'),waiting=at('locked'),open=!!s.open[st.id];
     return '<div class="stage-card"><h3><span>'+(i+1)+'</span> · '+st.n.toUpperCase()+'</h3>'+
-      '<div class="stage-counts"><div><b>'+at('tutorial')+'</b><small>обучение</small></div><div class="ready"><b>'+ready+'</b><small>готовы</small></div>'+
+      '<div class="stage-counts"><div><b>'+waiting+'</b><small>ждут</small></div><div><b>'+at('tutorial')+'</b><small>обучение</small></div><div class="ready"><b>'+ready+'</b><small>готовы</small></div>'+
       '<div class="playing"><b>'+playing+'</b><small>играют</small></div><div><b>'+passed+'</b><small>прошли</small></div></div>'+
-      '<button class="btn cyan" data-start="'+st.id+'"'+(ready?'':' disabled')+'>▶ ЗАПУСТИТЬ'+(ready?' · '+ready:'')+'</button>'+
+      '<button class="btn orange" data-open="'+st.id+'"'+(open?' disabled':'')+'>'+(open?'✓ ОБУЧЕНИЕ ОТКРЫТО':'📖 ОТКРЫТЬ ОБУЧЕНИЕ'+(waiting?' · '+waiting:''))+'</button>'+
+      '<button class="btn cyan" data-start="'+st.id+'"'+(ready?'':' disabled')+'>▶ ЗАПУСТИТЬ ЗАДАНИЕ'+(ready?' · '+ready:'')+'</button>'+
       '<button class="btn" data-stop="'+st.id+'"'+(playing?'':' disabled')+'>■ ЗАВЕРШИТЬ ЭТАП</button></div>';
   }).join('');
   const done=ps.filter(p=>p.phase==='finished').length;
@@ -111,6 +125,7 @@ q('#endSession').onclick=()=>{if(confirm('Завершить сеанс? Уча�
 q('#finalBtn').onclick=()=>call('admin:final');
 q('#stageGrid').onclick=e=>{
   const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.open)call('admin:openTutorial',{stage:b.dataset.open});
   if(b.dataset.start)call('admin:startStage',{stage:b.dataset.start});
   if(b.dataset.stop&&confirm('Завершить этап? Кто ещё играет, получит отметку «не завершил» и перейдёт дальше.'))call('admin:stopStage',{stage:b.dataset.stop});
 };

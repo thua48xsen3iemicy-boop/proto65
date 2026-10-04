@@ -18,7 +18,7 @@ main>section,#activeSession>.panel{margin-bottom:16px}
 .stage-card{border:1px solid #315066;border-radius:14px;background:#0b1822;padding:14px;display:flex;flex-direction:column;gap:10px}
 .stage-card h3{margin:0;font-size:14px;letter-spacing:.05em}
 .stage-card h3 span{color:var(--o)}
-.stage-counts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.stage-counts{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
 .stage-counts div{border:1px solid #233b4b;border-radius:10px;padding:7px 4px;text-align:center;background:#081520}
 .stage-counts b{display:block;font-size:20px}
 .stage-counts small{color:var(--m);font-size:10px;letter-spacing:.04em}
@@ -46,6 +46,14 @@ main>section,#activeSession>.panel{margin-bottom:16px}
 .status.ready{color:var(--g);border-color:#286a4a}
 .status.playing{color:var(--y);border-color:#7a6424}
 .status.finished{color:#0b1720;background:var(--g);border-color:var(--g)}
+.status.locked{border-style:dashed}
+.progress{display:flex;align-items:center;gap:8px;margin-top:6px}
+.progress-bar{width:120px;height:7px;border-radius:99px;background:#071018;border:1px solid #293c4b;overflow:hidden}
+.progress-bar div{height:100%;background:linear-gradient(90deg,var(--c),var(--g));transition:width .3s}
+.progress span{font-size:11px;color:var(--m);font-variant-numeric:tabular-nums}
+.results .sub{white-space:normal;max-width:300px}
+.idle{display:block;color:#ff9ba7;font-size:11px;font-weight:800}
+.idle:empty{display:none}
 .icon-btn{border:1px solid var(--line);background:transparent;color:var(--m);border-radius:8px;width:30px;height:30px;cursor:pointer}
 .icon-btn:hover{color:#ff9ba7;border-color:#8f3142}
 
